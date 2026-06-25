@@ -28,14 +28,13 @@ def load_zip(uploaded):
             if name.endswith(".json"):
                 with z.open(name) as f:
                     raw = json.load(f)
-                    if isinstance(raw, dict) and "frames" in raw:
-                        frames = raw["frames"]
-                    elif isinstance(raw, list):
-                        frames = raw
-                    else:
-                        frames = []
+                if isinstance(raw, dict) and "frames" in raw:
+                    frames = raw["frames"]
+                elif isinstance(raw, list):
+                    frames = raw
+                else:
+                    frames = []
             elif name.lower().endswith((".jpg", ".jpeg", ".png")):
-                # nombre esperado: frame_000123.jpg → índice 123
                 stem = name.split("/")[-1].rsplit(".", 1)[0]
                 digits = "".join(c for c in stem if c.isdigit())
                 if digits:
@@ -44,15 +43,27 @@ def load_zip(uploaded):
                         frame_images[idx] = Image.open(io.BytesIO(f.read())).convert("RGB")
     return frames, frame_images
 
+def get_jugadores(frame):
+    """Extrae la lista de jugadores de un frame independientemente del formato."""
+    if isinstance(frame, dict):
+        return frame.get("jugadores", [])
+    elif isinstance(frame, list):
+        return frame
+    return []
+
 def build_trajectories(frames):
     trajs = defaultdict(list)
     for fi, frame in enumerate(frames):
-        if not isinstance(frame, list):
-            continue
-        for det in frame:
-            pid  = det.get("id", det.get("pid", -1))
-            x    = det.get("x_campo", det.get("x", 0))
-            y    = det.get("y_campo", det.get("y", 0))
+        for det in get_jugadores(frame):
+            if not isinstance(det, dict):
+                continue
+            pid  = det.get("track_id", det.get("id", det.get("pid", -1)))
+            pos  = det.get("pos_2d_smooth", det.get("pos_2d", None))
+            if pos is None:
+                x = det.get("x_campo", det.get("x", 0))
+                y = det.get("y_campo", det.get("y", 0))
+            else:
+                x, y = pos[0], pos[1]
             team = det.get("equipo", det.get("team", -1))
             trajs[pid].append((fi, x, y, team))
     return trajs
@@ -84,7 +95,7 @@ def field_to_px(x, y):
     return (PAD_L + (x / FIELD_W) * DRAW_W,
             PAD_T + (y / FIELD_H) * DRAW_H)
 
-def build_field_svg(frame_dets, heatmap_pid=None, heatmap_team=None,
+def build_field_svg(jugadores, heatmap_pid=None, heatmap_team=None,
                     heatmap_data=None, show_dots=True):
     lines = []
     lines.append(f'<svg width="{SVG_W}" height="{SVG_H}" '
@@ -135,11 +146,17 @@ def build_field_svg(frame_dets, heatmap_pid=None, heatmap_team=None,
                              f'width="{cw:.1f}" height="{ch:.1f}" '
                              f'fill="{color}" rx="2"/>')
 
-    if show_dots and frame_dets and isinstance(frame_dets, list):
-        for det in frame_dets:
-            x    = det.get("x_campo", det.get("x", 0))
-            y    = det.get("y_campo", det.get("y", 0))
-            pid  = det.get("id", det.get("pid", -1))
+    if show_dots and jugadores:
+        for det in jugadores:
+            if not isinstance(det, dict):
+                continue
+            pos  = det.get("pos_2d_smooth", det.get("pos_2d", None))
+            if pos is None:
+                x = det.get("x_campo", det.get("x", 0))
+                y = det.get("y_campo", det.get("y", 0))
+            else:
+                x, y = pos[0], pos[1]
+            pid  = det.get("track_id", det.get("id", det.get("pid", -1)))
             team = det.get("equipo", det.get("team", -1))
             ppx, ppy = field_to_px(x, y)
             color = TEAM_COLORS.get(team, "#888")
@@ -157,7 +174,7 @@ def build_field_svg(frame_dets, heatmap_pid=None, heatmap_team=None,
     lines.append('</svg>')
     return "\n".join(lines)
 
-# ── UI ─────────────────────────────────────────────────────────────────────────
+# ── CSS ────────────────────────────────────────────────────────────────────────
 
 st.markdown("""
 <style>
@@ -177,6 +194,8 @@ h1,h2,h3 { color: #f0f0f0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── UI ─────────────────────────────────────────────────────────────────────────
+
 st.title("⚽ Análisis táctico 7×7")
 
 with st.sidebar:
@@ -193,26 +212,23 @@ if not uploaded:
 with st.spinner("Cargando datos..."):
     frames, frame_images = load_zip(uploaded)
 
-if frames is None:
+if not frames:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
     st.stop()
 
-n_frames     = len(frames)
-trajs        = build_trajectories(frames)
-player_team  = {pid: majority_team(pts) for pid, pts in trajs.items()}
+n_frames        = len(frames)
+trajs           = build_trajectories(frames)
+player_team     = {pid: majority_team(pts) for pid, pts in trajs.items()}
 players_by_team = defaultdict(list)
 for pid, team in player_team.items():
     players_by_team[team].append(pid)
-distances    = distance_per_player(trajs)
-has_frames   = len(frame_images) > 0
-
-# nearest available frame image
+distances       = distance_per_player(trajs)
+has_frames      = len(frame_images) > 0
 sorted_img_keys = sorted(frame_images.keys()) if has_frames else []
 
 def nearest_frame_image(idx):
     if not sorted_img_keys: return None
-    closest = min(sorted_img_keys, key=lambda k: abs(k - idx))
-    return frame_images[closest]
+    return frame_images[min(sorted_img_keys, key=lambda k: abs(k - idx))]
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 
@@ -221,12 +237,13 @@ tab_campo, tab_dist, tab_heat = st.tabs(["🟢 Campo en vivo", "📏 Distancias"
 # ── TAB CAMPO ──────────────────────────────────────────────────────────────────
 with tab_campo:
     frame_idx = st.slider("Frame", 0, n_frames - 1, 0, key="frame_slider")
+    jugadores_frame = get_jugadores(frames[frame_idx])
 
     col2d, colv = st.columns(2)
 
     with col2d:
         st.markdown('<div class="panel-label">Plano 2D</div>', unsafe_allow_html=True)
-        svg = build_field_svg(frames[frame_idx])
+        svg = build_field_svg(jugadores_frame)
         st.markdown(svg, unsafe_allow_html=True)
 
     with colv:
@@ -236,21 +253,19 @@ with tab_campo:
             st.image(img, use_container_width=True)
             if len(sorted_img_keys) > 1:
                 step = sorted_img_keys[1] - sorted_img_keys[0]
-                st.caption(f"Frame {frame_idx} (exportado cada {step} frames)")
+                st.caption(f"Frame {frame_idx} · exportado cada {step} frames")
         else:
-            st.info("El ZIP no contiene frames de video.\n\n"
-                    "Añade la carpeta `frames/` al ZIP con la celda de exportación del Colab.")
+            st.info("El ZIP no contiene frames de video.")
 
-    # info jugadores
     st.markdown("---")
-    frame_dets = frames[frame_idx]
     by_team = defaultdict(list)
-    for d in frame_dets:
-        t = d.get("equipo", d.get("team", -1))
-        p = d.get("id", d.get("pid", "?"))
+    for det in jugadores_frame:
+        if not isinstance(det, dict): continue
+        t = det.get("equipo", det.get("team", -1))
+        p = det.get("track_id", det.get("id", det.get("pid", "?")))
         by_team[t].append(p)
 
-    cols = st.columns(len(by_team) or 1)
+    cols = st.columns(max(len(by_team), 1))
     for col, team_id in zip(cols, sorted(by_team.keys())):
         with col:
             color = TEAM_COLORS.get(team_id, "#888")
@@ -308,8 +323,10 @@ with tab_dist:
 # ── TAB HEATMAPS ───────────────────────────────────────────────────────────────
 with tab_heat:
     st.subheader("Heatmap de posiciones")
-
     mode = st.radio("Ver heatmap de:", ["Por equipo", "Por jugador"], horizontal=True)
+
+    def get_pts(pid):
+        return [(p[1], p[2]) for p in trajs[pid]]
 
     if mode == "Por equipo":
         col1, col2 = st.columns(2)
@@ -325,7 +342,7 @@ with tab_heat:
     else:
         all_pids = sorted(trajs.keys())
         pid_labels = {
-            pid: f"Jugador {pid} ({TEAM_NAMES.get(player_team.get(pid,-1), '?')})"
+            pid: f"Jugador {pid} ({TEAM_NAMES.get(player_team.get(pid, -1), '?')})"
             for pid in all_pids
         }
         selected_pid = st.selectbox(
@@ -335,12 +352,12 @@ with tab_heat:
         )
         team_id = player_team.get(selected_pid, -1)
         color   = TEAM_COLORS.get(team_id, "#888")
-        pts     = [(p[1], p[2]) for p in trajs[selected_pid]]
+        pts     = get_pts(selected_pid)
 
         col_svg, col_stats = st.columns([3, 1])
         with col_svg:
             svg = build_field_svg(
-                frames[st.session_state.get("frame_slider", 0)],
+                get_jugadores(frames[st.session_state.get("frame_slider", 0)]),
                 heatmap_pid=selected_pid,
                 heatmap_team=team_id,
                 heatmap_data=pts,
@@ -361,5 +378,5 @@ with tab_heat:
                 f'<div class="sub">de {n_frames} totales</div></div>'
                 f'<div class="metric-card" style="--c:{color}">'
                 f'<div class="label">Equipo</div>'
-                f'<div class="value" style="font-size:15px">{TEAM_NAMES.get(team_id,"?")}</div>'
+                f'<div class="value" style="font-size:15px">{TEAM_NAMES.get(team_id, "?")}</div>'
                 f'</div>', unsafe_allow_html=True)
