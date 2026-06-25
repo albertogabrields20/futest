@@ -64,7 +64,7 @@ def build_trajectories(frames):
     trajs = defaultdict(list)
     for fi, frame in enumerate(frames):
         for det in get_jugadores(frame):
-            pid = get_pid(det)
+            pid  = get_pid(det)
             x, y = get_pos(det)
             team = get_team(det)
             trajs[pid].append((fi, x, y, team))
@@ -204,6 +204,19 @@ if not frames:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
     st.stop()
 
+# ── DEBUG ─────────────────────────────────────────────────────
+with st.expander("🔍 Debug — estructura del JSON"):
+    st.write(f"Frames en JSON: {len(frames)}")
+    track_ids = set()
+    for fd in frames:
+        for jug in get_jugadores(fd):
+            track_ids.add(get_pid(jug))
+    st.write(f"Track IDs únicos: {len(track_ids)}")
+    st.write(f"IDs: {sorted(track_ids)[:20]}{'...' if len(track_ids)>20 else ''}")
+    if frames:
+        st.write("Estructura primer frame:", frames[0])
+# ─────────────────────────────────────────────────────────────
+
 n_frames        = len(frames)
 trajs           = build_trajectories(frames)
 player_team     = {pid: majority_team(pts) for pid, pts in trajs.items()}
@@ -306,10 +319,13 @@ with tab_heat:
         for col, team_id in zip([col1, col2], [0, 1]):
             with col:
                 color = TEAM_COLORS[team_id]
-                st.markdown(f'<h4 style="color:{color}">{TEAM_NAMES[team_id]}</h4>', unsafe_allow_html=True)
-                pts = [(p[1], p[2]) for pid in players_by_team[team_id] for p in trajs[pid]]
+                st.markdown(f'<h4 style="color:{color}">{TEAM_NAMES[team_id]}</h4>',
+                            unsafe_allow_html=True)
+                pts = [(p[1], p[2]) for pid in players_by_team[team_id]
+                       for p in trajs[pid]]
                 st.markdown(build_field_svg([], heatmap_team=team_id,
-                            heatmap_data=pts, show_dots=False), unsafe_allow_html=True)
+                            heatmap_data=pts, show_dots=False),
+                            unsafe_allow_html=True)
     else:
         all_pids = sorted(trajs.keys())
         pid_labels = {
@@ -330,15 +346,18 @@ with tab_heat:
                 heatmap_data=pts, show_dots=True
             ), unsafe_allow_html=True)
         with col_stats:
-            d = distances.get(selected_pid, 0)
+            d           = distances.get(selected_pid, 0)
             appearances = len(trajs[selected_pid])
             st.markdown(
                 f'<div class="metric-card" style="--c:{color};margin-top:20px">'
-                f'<div class="label">Distancia</div><div class="value">{d} m</div></div>'
+                f'<div class="label">Distancia</div>'
+                f'<div class="value">{d} m</div></div>'
                 f'<div class="metric-card" style="--c:{color}">'
-                f'<div class="label">Frames detectado</div><div class="value">{appearances}</div>'
+                f'<div class="label">Frames detectado</div>'
+                f'<div class="value">{appearances}</div>'
                 f'<div class="sub">de {n_frames} totales</div></div>'
                 f'<div class="metric-card" style="--c:{color}">'
                 f'<div class="label">Equipo</div>'
-                f'<div class="value" style="font-size:15px">{TEAM_NAMES.get(team_id, "?")}</div>'
+                f'<div class="value" style="font-size:15px">'
+                f'{TEAM_NAMES.get(team_id, "?")}</div>'
                 f'</div>', unsafe_allow_html=True)
