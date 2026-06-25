@@ -133,7 +133,7 @@ def build_field_svg(frame_dets, heatmap_pid=None, heatmap_team=None,
                              f'width="{cw:.1f}" height="{ch:.1f}" '
                              f'fill="{color}" rx="2"/>')
 
-    if show_dots and frame_dets:
+    if show_dots and frame_dets and isinstance(frame_dets, list):
         for det in frame_dets:
             x    = det.get("x_campo", det.get("x", 0))
             y    = det.get("y_campo", det.get("y", 0))
