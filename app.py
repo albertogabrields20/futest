@@ -233,7 +233,7 @@ with tab_campo:
         st.markdown('<div class="panel-label">Video original</div>', unsafe_allow_html=True)
         if has_frames:
             img = nearest_frame_image(frame_idx)
-            st.image(img, width=None)
+            st.image(img)
             if len(sorted_img_keys) > 1:
                 step = sorted_img_keys[1] - sorted_img_keys[0]
                 st.caption(f"Frame {frame_idx} · exportado cada {step} frames")
