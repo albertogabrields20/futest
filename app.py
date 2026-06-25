@@ -45,6 +45,8 @@ def load_zip(uploaded):
 def build_trajectories(frames):
     trajs = defaultdict(list)
     for fi, frame in enumerate(frames):
+        if not isinstance(frame, list):
+            continue
         for det in frame:
             pid  = det.get("id", det.get("pid", -1))
             x    = det.get("x_campo", det.get("x", 0))
