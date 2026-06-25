@@ -28,10 +28,12 @@ def load_zip(uploaded):
             if name.endswith(".json"):
                 with z.open(name) as f:
                     raw = json.load(f)
-                    def safe_key(x):
-                        try: return int(x)
-                        except: return x
-                    frames = raw if isinstance(raw, list) else [raw[k] for k in sorted(raw, key=safe_key)]
+                    if isinstance(raw, dict):
+                        frames = [raw[k] for k in sorted(raw, key=lambda x: int(str(x)))]
+                    elif isinstance(raw, list) and len(raw) > 0 and isinstance(raw[0], dict):
+                        frames = raw
+                    else:
+                        frames = []
             elif name.lower().endswith((".jpg", ".jpeg", ".png")):
                 # nombre esperado: frame_000123.jpg → índice 123
                 stem = name.split("/")[-1].rsplit(".", 1)[0]
@@ -190,12 +192,6 @@ if not uploaded:
 
 with st.spinner("Cargando datos..."):
     frames, frame_images = load_zip(uploaded)
-
-# DEBUG — borrar después
-st.write("Tipo frames:", type(frames))
-st.write("Primer elemento:", type(frames[0]) if frames else "vacío")
-st.write("Muestra:", frames[0] if frames else "vacío")
-st.stop()
 
 if frames is None:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
