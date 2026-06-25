@@ -28,12 +28,16 @@ def load_zip(uploaded):
             if name.endswith(".json"):
                 with z.open(name) as f:
                     raw = json.load(f)
+                    st.write("tipo raw:", type(raw))
                     if isinstance(raw, dict):
-                        frames = [raw[k] for k in sorted(raw, key=lambda x: int(str(x)))]
-                    elif isinstance(raw, list) and len(raw) > 0 and isinstance(raw[0], dict):
-                        frames = raw
-                    else:
-                        frames = []
+                        keys = list(raw.keys())[:5]
+                        st.write("primeras claves:", keys)
+                        st.write("tipo clave:", type(keys[0]))
+                        st.write("primer valor:", raw[keys[0]])
+                    elif isinstance(raw, list):
+                        st.write("longitud:", len(raw))
+                        st.write("primeros 2:", raw[:2])
+                    st.stop()
             elif name.lower().endswith((".jpg", ".jpeg", ".png")):
                 # nombre esperado: frame_000123.jpg → índice 123
                 stem = name.split("/")[-1].rsplit(".", 1)[0]
