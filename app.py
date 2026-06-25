@@ -28,7 +28,10 @@ def load_zip(uploaded):
             if name.endswith(".json"):
                 with z.open(name) as f:
                     raw = json.load(f)
-                    frames = raw if isinstance(raw, list) else [raw[k] for k in sorted(raw, key=lambda x: int(x))]
+                    def safe_key(x):
+                        try: return int(x)
+                        except: return x
+                    frames = raw if isinstance(raw, list) else [raw[k] for k in sorted(raw, key=safe_key)]
             elif name.lower().endswith((".jpg", ".jpeg", ".png")):
                 # nombre esperado: frame_000123.jpg → índice 123
                 stem = name.split("/")[-1].rsplit(".", 1)[0]
