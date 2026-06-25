@@ -219,6 +219,16 @@ with st.expander("🔍 Debug — estructura del JSON"):
 
 n_frames        = len(frames)
 trajs           = build_trajectories(frames)
+
+with st.expander("🔍 Debug 2 — trayectorias"):
+    st.write(f"Total trayectorias: {len(trajs)}")
+    st.write(f"IDs en trajs: {sorted(trajs.keys())[:20]}...")
+    player_team_debug = {pid: majority_team(pts) for pid, pts in trajs.items()}
+    e0 = sum(1 for t in player_team_debug.values() if t == 0)
+    e1 = sum(1 for t in player_team_debug.values() if t == 1)
+    st.write(f"Equipo 1: {e0} jugadores")
+    st.write(f"Equipo 2: {e1} jugadores")
+
 player_team     = {pid: majority_team(pts) for pid, pts in trajs.items()}
 players_by_team = defaultdict(list)
 for pid, team in player_team.items():
