@@ -191,6 +191,12 @@ if not uploaded:
 with st.spinner("Cargando datos..."):
     frames, frame_images = load_zip(uploaded)
 
+# DEBUG — borrar después
+st.write("Tipo frames:", type(frames))
+st.write("Primer elemento:", type(frames[0]) if frames else "vacío")
+st.write("Muestra:", frames[0] if frames else "vacío")
+st.stop()
+
 if frames is None:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
     st.stop()
