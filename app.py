@@ -18,8 +18,6 @@ FIELD_H = 30
 TEAM_COLORS = {0: "#E8593C", 1: "#3B8BD4", -1: "#888780"}
 TEAM_NAMES  = {0: "Equipo 1", 1: "Equipo 2", -1: "Sin equipo"}
 
-# ── helpers ───────────────────────────────────────────────────────────────────
-
 def load_zip(uploaded):
     frames = None
     frame_images = {}
@@ -44,27 +42,31 @@ def load_zip(uploaded):
     return frames, frame_images
 
 def get_jugadores(frame):
-    """Extrae la lista de jugadores de un frame independientemente del formato."""
     if isinstance(frame, dict):
         return frame.get("jugadores", [])
     elif isinstance(frame, list):
-        return frame
+        return [d for d in frame if isinstance(d, dict)]
     return []
+
+def get_pos(det):
+    pos = det.get("pos_2d_smooth", det.get("pos_2d", None))
+    if pos is not None:
+        return pos[0], pos[1]
+    return det.get("x_campo", det.get("x", 0)), det.get("y_campo", det.get("y", 0))
+
+def get_pid(det):
+    return det.get("track_id", det.get("id", det.get("pid", -1)))
+
+def get_team(det):
+    return det.get("equipo", det.get("team", -1))
 
 def build_trajectories(frames):
     trajs = defaultdict(list)
     for fi, frame in enumerate(frames):
         for det in get_jugadores(frame):
-            if not isinstance(det, dict):
-                continue
-            pid  = det.get("track_id", det.get("id", det.get("pid", -1)))
-            pos  = det.get("pos_2d_smooth", det.get("pos_2d", None))
-            if pos is None:
-                x = det.get("x_campo", det.get("x", 0))
-                y = det.get("y_campo", det.get("y", 0))
-            else:
-                x, y = pos[0], pos[1]
-            team = det.get("equipo", det.get("team", -1))
+            pid = get_pid(det)
+            x, y = get_pos(det)
+            team = get_team(det)
             trajs[pid].append((fi, x, y, team))
     return trajs
 
@@ -83,8 +85,6 @@ def majority_team(pts):
     from collections import Counter
     c = Counter(p[3] for p in pts)
     return c.most_common(1)[0][0]
-
-# ── SVG field ──────────────────────────────────────────────────────────────────
 
 SVG_W, SVG_H = 680, 408
 PAD_L, PAD_T = 36, 28
@@ -148,16 +148,10 @@ def build_field_svg(jugadores, heatmap_pid=None, heatmap_team=None,
 
     if show_dots and jugadores:
         for det in jugadores:
-            if not isinstance(det, dict):
-                continue
-            pos  = det.get("pos_2d_smooth", det.get("pos_2d", None))
-            if pos is None:
-                x = det.get("x_campo", det.get("x", 0))
-                y = det.get("y_campo", det.get("y", 0))
-            else:
-                x, y = pos[0], pos[1]
-            pid  = det.get("track_id", det.get("id", det.get("pid", -1)))
-            team = det.get("equipo", det.get("team", -1))
+            if not isinstance(det, dict): continue
+            x, y = get_pos(det)
+            pid  = get_pid(det)
+            team = get_team(det)
             ppx, ppy = field_to_px(x, y)
             color = TEAM_COLORS.get(team, "#888")
             sel = (heatmap_pid is not None and pid == heatmap_pid)
@@ -174,8 +168,6 @@ def build_field_svg(jugadores, heatmap_pid=None, heatmap_team=None,
     lines.append('</svg>')
     return "\n".join(lines)
 
-# ── CSS ────────────────────────────────────────────────────────────────────────
-
 st.markdown("""
 <style>
 [data-testid="stAppViewContainer"] { background: #0f1117; }
@@ -189,19 +181,15 @@ h1,h2,h3 { color: #f0f0f0 !important; }
 .metric-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
 .metric-card .value { font-size: 24px; font-weight: 700; color: #f0f0f0; margin-top: 2px; }
 .metric-card .sub   { font-size: 12px; color: #666; margin-top: 2px; }
-.panel-label { font-size: 11px; color: #666; text-transform: uppercase;
-               letter-spacing: .6px; margin-bottom: 6px; }
+.panel-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
 </style>
 """, unsafe_allow_html=True)
-
-# ── UI ─────────────────────────────────────────────────────────────────────────
 
 st.title("⚽ Análisis táctico 7×7")
 
 with st.sidebar:
     st.header("Cargar datos")
-    uploaded = st.file_uploader("partido.zip", type="zip",
-        help="ZIP con posiciones_limpias.json + carpeta frames/")
+    uploaded = st.file_uploader("partido.zip", type="zip")
     st.markdown("---")
     st.caption("Genera este archivo con la celda de exportación del Colab.")
 
@@ -230,27 +218,22 @@ def nearest_frame_image(idx):
     if not sorted_img_keys: return None
     return frame_images[min(sorted_img_keys, key=lambda k: abs(k - idx))]
 
-# ── Tabs ───────────────────────────────────────────────────────────────────────
-
 tab_campo, tab_dist, tab_heat = st.tabs(["🟢 Campo en vivo", "📏 Distancias", "🌡️ Heatmaps"])
 
-# ── TAB CAMPO ──────────────────────────────────────────────────────────────────
 with tab_campo:
     frame_idx = st.slider("Frame", 0, n_frames - 1, 0, key="frame_slider")
     jugadores_frame = get_jugadores(frames[frame_idx])
 
     col2d, colv = st.columns(2)
-
     with col2d:
         st.markdown('<div class="panel-label">Plano 2D</div>', unsafe_allow_html=True)
-        svg = build_field_svg(jugadores_frame)
-        st.markdown(svg, unsafe_allow_html=True)
+        st.markdown(build_field_svg(jugadores_frame), unsafe_allow_html=True)
 
     with colv:
         st.markdown('<div class="panel-label">Video original</div>', unsafe_allow_html=True)
         if has_frames:
             img = nearest_frame_image(frame_idx)
-            st.image(img, use_container_width=True)
+            st.image(img, width=None)
             if len(sorted_img_keys) > 1:
                 step = sorted_img_keys[1] - sorted_img_keys[0]
                 st.caption(f"Frame {frame_idx} · exportado cada {step} frames")
@@ -261,9 +244,7 @@ with tab_campo:
     by_team = defaultdict(list)
     for det in jugadores_frame:
         if not isinstance(det, dict): continue
-        t = det.get("equipo", det.get("team", -1))
-        p = det.get("track_id", det.get("id", det.get("pid", "?")))
-        by_team[t].append(p)
+        by_team[get_team(det)].append(get_pid(det))
 
     cols = st.columns(max(len(by_team), 1))
     for col, team_id in zip(cols, sorted(by_team.keys())):
@@ -277,11 +258,8 @@ with tab_campo:
                 f'<span style="color:#aaa;font-size:12px">Jugadores: {", ".join(str(p) for p in pids)}</span>'
                 f'</div>', unsafe_allow_html=True)
 
-# ── TAB DISTANCIAS ─────────────────────────────────────────────────────────────
 with tab_dist:
     st.subheader("Distancia recorrida por jugador")
-    st.caption("En metros — escala 1 unidad = 1 m (FIELD_W=50, FIELD_H=30)")
-
     col1, col2 = st.columns(2)
     for col, team_id in zip([col1, col2], [0, 1]):
         with col:
@@ -312,69 +290,53 @@ with tab_dist:
         with col:
             total = sum(distances.get(p, 0) for p in players_by_team[team_id])
             color = TEAM_COLORS[team_id]
-            name  = TEAM_NAMES[team_id]
             st.markdown(
                 f'<div class="metric-card" style="--c:{color}">'
-                f'<div class="label">Total {name}</div>'
+                f'<div class="label">Total {TEAM_NAMES[team_id]}</div>'
                 f'<div class="value">{total:.0f} m</div>'
                 f'<div class="sub">{len(players_by_team[team_id])} jugadores</div>'
                 f'</div>', unsafe_allow_html=True)
 
-# ── TAB HEATMAPS ───────────────────────────────────────────────────────────────
 with tab_heat:
     st.subheader("Heatmap de posiciones")
     mode = st.radio("Ver heatmap de:", ["Por equipo", "Por jugador"], horizontal=True)
-
-    def get_pts(pid):
-        return [(p[1], p[2]) for p in trajs[pid]]
 
     if mode == "Por equipo":
         col1, col2 = st.columns(2)
         for col, team_id in zip([col1, col2], [0, 1]):
             with col:
                 color = TEAM_COLORS[team_id]
-                name  = TEAM_NAMES[team_id]
-                st.markdown(f'<h4 style="color:{color}">{name}</h4>', unsafe_allow_html=True)
+                st.markdown(f'<h4 style="color:{color}">{TEAM_NAMES[team_id]}</h4>', unsafe_allow_html=True)
                 pts = [(p[1], p[2]) for pid in players_by_team[team_id] for p in trajs[pid]]
-                svg = build_field_svg([], heatmap_team=team_id,
-                                      heatmap_data=pts, show_dots=False)
-                st.markdown(svg, unsafe_allow_html=True)
+                st.markdown(build_field_svg([], heatmap_team=team_id,
+                            heatmap_data=pts, show_dots=False), unsafe_allow_html=True)
     else:
         all_pids = sorted(trajs.keys())
         pid_labels = {
             pid: f"Jugador {pid} ({TEAM_NAMES.get(player_team.get(pid, -1), '?')})"
             for pid in all_pids
         }
-        selected_pid = st.selectbox(
-            "Selecciona jugador",
-            options=all_pids,
-            format_func=lambda p: pid_labels[p]
-        )
+        selected_pid = st.selectbox("Selecciona jugador", options=all_pids,
+                                    format_func=lambda p: pid_labels[p])
         team_id = player_team.get(selected_pid, -1)
         color   = TEAM_COLORS.get(team_id, "#888")
-        pts     = get_pts(selected_pid)
+        pts     = [(p[1], p[2]) for p in trajs[selected_pid]]
 
         col_svg, col_stats = st.columns([3, 1])
         with col_svg:
-            svg = build_field_svg(
+            st.markdown(build_field_svg(
                 get_jugadores(frames[st.session_state.get("frame_slider", 0)]),
-                heatmap_pid=selected_pid,
-                heatmap_team=team_id,
-                heatmap_data=pts,
-                show_dots=True
-            )
-            st.markdown(svg, unsafe_allow_html=True)
-
+                heatmap_pid=selected_pid, heatmap_team=team_id,
+                heatmap_data=pts, show_dots=True
+            ), unsafe_allow_html=True)
         with col_stats:
-            d           = distances.get(selected_pid, 0)
+            d = distances.get(selected_pid, 0)
             appearances = len(trajs[selected_pid])
             st.markdown(
                 f'<div class="metric-card" style="--c:{color};margin-top:20px">'
-                f'<div class="label">Distancia</div>'
-                f'<div class="value">{d} m</div></div>'
+                f'<div class="label">Distancia</div><div class="value">{d} m</div></div>'
                 f'<div class="metric-card" style="--c:{color}">'
-                f'<div class="label">Frames detectado</div>'
-                f'<div class="value">{appearances}</div>'
+                f'<div class="label">Frames detectado</div><div class="value">{appearances}</div>'
                 f'<div class="sub">de {n_frames} totales</div></div>'
                 f'<div class="metric-card" style="--c:{color}">'
                 f'<div class="label">Equipo</div>'
