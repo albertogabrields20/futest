@@ -38,12 +38,12 @@ def pts_to_svg_poly(pts_field):
 
 def _draw_base_field(lines):
     """Líneas del campo: borde, medio campo, círculo central, áreas."""
-    def ln(x1, y1, x2, y2, **kw):
+    def ln(x1, y1, x2, y2):
         p1 = field_to_px(x1, y1); p2 = field_to_px(x2, y2)
-        attrs = " ".join(f'{k}="{v}"' for k, v in kw.items())
         lines.append(
             f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
-            f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" {attrs}/>'
+            f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
+            f'stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>'
         )
 
     tl = field_to_px(0, 0); br = field_to_px(FIELD_W, FIELD_H)
@@ -51,8 +51,7 @@ def _draw_base_field(lines):
         f'<rect x="{tl[0]}" y="{tl[1]}" width="{br[0]-tl[0]}" height="{br[1]-tl[1]}" '
         f'fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="2"/>'
     )
-    ln(FIELD_W/2, 0, FIELD_W/2, FIELD_H,
-       stroke="rgba(255,255,255,0.55)", **{"stroke-width": "1.5"})
+    ln(FIELD_W/2, 0, FIELD_W/2, FIELD_H)
     cc = field_to_px(FIELD_W/2, FIELD_H/2)
     rx = 4.5/FIELD_W*DRAW_W; ry = 4.5/FIELD_H*DRAW_H
     lines.append(
@@ -64,28 +63,12 @@ def _draw_base_field(lines):
     )
     for side in [0, FIELD_W]:
         s = 1 if side == 0 else -1
-        x2 = side + s*10; y1f = FIELD_H/2-6; y2f = FIELD_H/2+6
-        for a, b in [(side, y1f, x2, y1f), (x2, y1f, x2, y2f), (x2, y2f, side, y2f)]:
-            ln(a, b[0] if isinstance(b, tuple) else a,
-               b if not isinstance(b, tuple) else b[0],
-               b if not isinstance(b, tuple) else b[1],
-               stroke="rgba(255,255,255,0.55)", **{"stroke-width": "1.5"})
-        # simpler:
-    lines.pop(); lines.pop(); lines.pop()  # remove malformed, redo
-    for side in [0, FIELD_W]:
-        s = 1 if side == 0 else -1
-        x2v = side + s*10; y1f = FIELD_H/2-6; y2f = FIELD_H/2+6
-        for (ax, ay, bx, by) in [
-            (side, y1f, x2v, y1f),
-            (x2v, y1f, x2v, y2f),
-            (x2v, y2f, side, y2f),
-        ]:
-            p1 = field_to_px(ax, ay); p2 = field_to_px(bx, by)
-            lines.append(
-                f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
-                f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
-                f'stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>'
-            )
+        x2 = side + s*10
+        y1f = FIELD_H/2 - 6
+        y2f = FIELD_H/2 + 6
+        ln(side, y1f, x2,   y1f)
+        ln(x2,   y1f, x2,   y2f)
+        ln(x2,   y2f, side, y2f)
 
 
 def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
