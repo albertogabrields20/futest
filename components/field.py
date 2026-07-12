@@ -14,10 +14,11 @@ TEAM_COLORS_A = {
 }
 TEAM_NAMES = {0: "Equipo 1", 1: "Equipo 2", -1: "Sin equipo"}
 
-SVG_W, SVG_H = 680, 408
-PAD_L, PAD_T = 36, 28
-DRAW_W = SVG_W - PAD_L - 36
-DRAW_H = SVG_H - PAD_T - 28
+# SVG ocupa el 100% del ancho disponible — viewBox fija proporciones
+SVG_W, SVG_H = 700, 420
+PAD_L, PAD_T = 40, 30
+DRAW_W = SVG_W - PAD_L - 40
+DRAW_H = SVG_H - PAD_T - 30
 
 
 def field_to_px(x, y):
@@ -48,9 +49,11 @@ def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
     all_pts = pts0 + pts1
 
     lines = []
+    # viewBox hace que el SVG escale perfectamente al contenedor
     lines.append(
-        f'<svg width="{SVG_W}" height="{SVG_H}" xmlns="http://www.w3.org/2000/svg" '
-        f'style="background:#2d6a1f;border-radius:8px;width:100%">'
+        f'<svg viewBox="0 0 {SVG_W} {SVG_H}" '
+        f'xmlns="http://www.w3.org/2000/svg" '
+        f'style="background:#2d6a1f;border-radius:8px;width:100%;height:auto;display:block">'
     )
 
     # ── Campo base ────────────────────────────────────────────
@@ -64,7 +67,8 @@ def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
 
     tl = field_to_px(0, 0); br = field_to_px(FIELD_W, FIELD_H)
     lines.append(
-        f'<rect x="{tl[0]}" y="{tl[1]}" width="{br[0]-tl[0]}" height="{br[1]-tl[1]}" '
+        f'<rect x="{tl[0]}" y="{tl[1]}" '
+        f'width="{br[0]-tl[0]:.1f}" height="{br[1]-tl[1]:.1f}" '
         f'fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="2"/>'
     )
     ln(FIELD_W/2, 0, FIELD_W/2, FIELD_H)
