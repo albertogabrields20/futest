@@ -8,6 +8,10 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
 
     n_frames = len(frames)
 
+    # ── Inicializar frame actual ──────────────────────────────
+    if "current_frame" not in st.session_state:
+        st.session_state["current_frame"] = 0
+
     # ── Rango de navegación ───────────────────────────────────
     col_s, col_e = st.columns(2)
     with col_s:
@@ -28,11 +32,25 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
         "Frame",
         min_value=start_frame,
         max_value=end_frame,
-        value=start_frame,
+        value=int(st.session_state["current_frame"]),
         key="frame_slider_display"
     )
-    st.caption(f"Frame {frame_idx} de {n_frames-1} · "
-               f"Rango seleccionado: {start_frame} → {end_frame}")
+    st.session_state["current_frame"] = frame_idx
+
+    # ── Botones anterior / siguiente ──────────────────────────
+    col_prev, col_next, col_info = st.columns([1, 1, 4])
+    with col_prev:
+        if st.button("◀ Anterior", key="btn_prev"):
+            new = max(start_frame, frame_idx - 1)
+            st.session_state["current_frame"] = new
+            st.rerun()
+    with col_next:
+        if st.button("Siguiente ▶", key="btn_next"):
+            new = min(end_frame, frame_idx + 1)
+            st.session_state["current_frame"] = new
+            st.rerun()
+    with col_info:
+        st.caption(f"Frame {frame_idx} de {n_frames-1}")
 
     # ── Plano 2D + Video ──────────────────────────────────────
     jugadores_frame = get_jugadores(frames[frame_idx])
