@@ -1,6 +1,6 @@
 import streamlit as st
 from ..loaders import get_jugadores, get_pid, get_team
-from ..field import build_field_svg, TEAM_COLORS, TEAM_NAMES, SVG_W, SVG_H, FIELD_W, FIELD_H
+from ..field import build_field_svg, TEAM_COLORS, TEAM_NAMES
 
 
 def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
@@ -8,53 +8,67 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
 
     n_frames = len(frames)
 
+    # ── Inicializar estado ────────────────────────────────────
+    if "current_frame" not in st.session_state:
+        st.session_state["current_frame"] = 0
+    if "playing" not in st.session_state:
+        st.session_state["playing"] = False
+
     # ── Rango de reproducción ─────────────────────────────────
     col_s, col_e = st.columns(2)
     with col_s:
-        start_frame = st.number_input("Frame inicio", 0, n_frames-1, 0, step=1, key="start_frame")
+        start_frame = st.number_input(
+            "Frame inicio", 0, n_frames-1, 0, step=1, key="start_frame"
+        )
     with col_e:
-        end_frame = st.number_input("Frame fin", 0, n_frames-1, n_frames-1, step=1, key="end_frame")
+        end_frame = st.number_input(
+            "Frame fin", 0, n_frames-1, n_frames-1, step=1, key="end_frame"
+        )
 
     if start_frame > end_frame:
         st.warning("El frame de inicio debe ser menor que el de fin.")
         start_frame, end_frame = 0, n_frames - 1
 
-    # ── Slider dentro del rango ───────────────────────────────
+    # Clamp current_frame al rango
+    cur = int(st.session_state["current_frame"])
+    cur = max(int(start_frame), min(int(end_frame), cur))
+
+    # ── Slider ────────────────────────────────────────────────
     frame_idx = st.slider(
         "Frame",
         min_value=int(start_frame),
         max_value=int(end_frame),
-        value=int(start_frame),
-        key="frame_slider"
+        value=cur,
+        key="frame_slider_display"
     )
+    # El slider del usuario tiene prioridad sobre la reproducción
+    st.session_state["current_frame"] = frame_idx
 
     # ── Botones play/stop ─────────────────────────────────────
     col_play, col_stop, col_info = st.columns([1, 1, 4])
     with col_play:
-        play = st.button("▶ Reproducir", key="btn_play")
+        if st.button("▶ Reproducir", key="btn_play"):
+            st.session_state["playing"] = True
     with col_stop:
-        stop = st.button("⏹ Detener", key="btn_stop")
+        if st.button("⏹ Detener", key="btn_stop"):
+            st.session_state["playing"] = False
     with col_info:
-        st.caption(f"Rango: {start_frame} → {end_frame} · "
-                   f"{end_frame - start_frame + 1} frames")
+        estado = "▶ Reproduciendo" if st.session_state["playing"] else "⏸ Pausado"
+        st.caption(f"{estado} · Frame {frame_idx} · "
+                   f"Rango {int(start_frame)}→{int(end_frame)}")
 
-    if play:
-        st.session_state["playing"] = True
-    if stop:
-        st.session_state["playing"] = False
-
-    # Auto-avance cuando está reproduciendo
-    if st.session_state.get("playing", False):
+    # ── Auto-avance ───────────────────────────────────────────
+    if st.session_state["playing"]:
         next_frame = frame_idx + 1
-        if next_frame > end_frame:
+        if next_frame > int(end_frame):
             st.session_state["playing"] = False
         else:
-            st.session_state["frame_slider"] = next_frame
+            st.session_state["current_frame"] = next_frame
+            import time; time.sleep(0.05)
             st.rerun()
 
     # ── Plano 2D + Video ──────────────────────────────────────
     jugadores_frame = get_jugadores(frames[frame_idx])
-
     heat_team_id = 0 if st.session_state.get("heat_team") == "E1" else 1
     heat_data = heatmap_all[heat_team_id] if ovs.get("heatmap_equipo") else None
 
@@ -75,7 +89,7 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
         st.markdown('<div class="panel-label">Vídeo original</div>', unsafe_allow_html=True)
         if sorted_img_keys:
             closest = min(sorted_img_keys, key=lambda k: abs(k - frame_idx))
-            st.image(frame_images[closest], use_container_width=True)
+            st.image(frame_images[closest])
             if len(sorted_img_keys) > 1:
                 step = sorted_img_keys[1] - sorted_img_keys[0]
                 st.caption(f"Frame {frame_idx} · exportado cada {step} frames")
