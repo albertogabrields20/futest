@@ -7,10 +7,13 @@ from PIL import Image
 
 
 def load_zip(uploaded):
+    """Carga el JSON y los metadatos de frames, pero NO las imágenes en memoria."""
     frames = None
-    frame_images = {}
+    frame_index = {}   # idx → nombre del archivo dentro del ZIP
     metricas = None
-    with zipfile.ZipFile(io.BytesIO(uploaded.read())) as z:
+    zip_bytes = uploaded.read()
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
         for name in z.namelist():
             if name.endswith("metricas.json"):
                 with z.open(name) as f:
@@ -28,12 +31,21 @@ def load_zip(uploaded):
                 stem = name.split("/")[-1].rsplit(".", 1)[0]
                 digits = "".join(c for c in stem if c.isdigit())
                 if digits:
-                    idx = int(digits)
-                    with z.open(name) as f:
-                        frame_images[idx] = Image.open(
-                            io.BytesIO(f.read())
-                        ).convert("RGB")
-    return frames, frame_images, metricas
+                    frame_index[int(digits)] = name
+
+    return frames, frame_index, zip_bytes, metricas
+
+
+def get_frame_image(zip_bytes, frame_index, frame_idx):
+    """Carga una sola imagen del ZIP bajo demanda."""
+    if not frame_index:
+        return None
+    sorted_keys = sorted(frame_index.keys())
+    closest = min(sorted_keys, key=lambda k: abs(k - frame_idx))
+    name = frame_index[closest]
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        with z.open(name) as f:
+            return Image.open(io.BytesIO(f.read())).convert("RGB")
 
 
 def get_jugadores(frame):
