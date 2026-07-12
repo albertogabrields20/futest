@@ -36,8 +36,24 @@ def pts_to_svg_poly(pts_field):
     )
 
 
-def _draw_base_field(lines):
-    """Líneas del campo: borde, medio campo, círculo central, áreas."""
+def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
+                    heatmap_data=None, heatmap_team=None,
+                    heatmap_diff=None, player_team=None,
+                    frames_data=None):
+
+    e0 = [j for j in jugadores if get_team(j) == 0]
+    e1 = [j for j in jugadores if get_team(j) == 1]
+    pts0 = [get_pos(j) for j in e0]
+    pts1 = [get_pos(j) for j in e1]
+    all_pts = pts0 + pts1
+
+    lines = []
+    lines.append(
+        f'<svg width="{SVG_W}" height="{SVG_H}" xmlns="http://www.w3.org/2000/svg" '
+        f'style="background:#2d6a1f;border-radius:8px;width:100%">'
+    )
+
+    # ── Campo base ────────────────────────────────────────────
     def ln(x1, y1, x2, y2):
         p1 = field_to_px(x1, y1); p2 = field_to_px(x2, y2)
         lines.append(
@@ -69,26 +85,6 @@ def _draw_base_field(lines):
         ln(side, y1f, x2,   y1f)
         ln(x2,   y1f, x2,   y2f)
         ln(x2,   y2f, side, y2f)
-
-
-def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
-                    heatmap_data=None, heatmap_team=None,
-                    heatmap_diff=None, player_team=None,
-                    frames_data=None):
-
-    e0 = [j for j in jugadores if get_team(j) == 0]
-    e1 = [j for j in jugadores if get_team(j) == 1]
-    pts0 = [get_pos(j) for j in e0]
-    pts1 = [get_pos(j) for j in e1]
-    all_pts = pts0 + pts1
-
-    lines = []
-    lines.append(
-        f'<svg width="{SVG_W}" height="{SVG_H}" xmlns="http://www.w3.org/2000/svg" '
-        f'style="background:#2d6a1f;border-radius:8px;width:100%">'
-    )
-
-    _draw_base_field(lines)
 
     # ── Heatmap diferencial ───────────────────────────────────
     if ovs.get("heatmap_diff") and heatmap_diff:
@@ -196,9 +192,9 @@ def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
 
     # ── Espacio libre ─────────────────────────────────────────
     if ovs.get("espacio_libre") and all_pts:
-        grid = 12; cw_f = FIELD_W/grid; ch_f = FIELD_H/grid
-        for gx in range(grid):
-            for gy in range(grid):
+        grid_n = 12; cw_f = FIELD_W/grid_n; ch_f = FIELD_H/grid_n
+        for gx in range(grid_n):
+            for gy in range(grid_n):
                 cx = (gx+0.5)*cw_f; cy = (gy+0.5)*ch_f
                 d_min = min(math.hypot(cx-x, cy-y) for x, y in all_pts)
                 if d_min > 5:
@@ -392,14 +388,16 @@ def build_field_svg(jugadores, ovs, trajs=None, frame_idx=0,
                 speed = math.hypot(dx, dy)
                 if speed > 0.3:
                     if not has_arrows:
-                        lines.insert(1, '<defs>'
+                        lines.insert(1,
+                            '<defs>'
                             f'<marker id="arr_0" viewBox="0 0 6 6" refX="5" refY="3" '
                             f'markerWidth="4" markerHeight="4" orient="auto">'
                             f'<path d="M0 0L6 3L0 6" fill="{TEAM_COLORS[0]}"/></marker>'
                             f'<marker id="arr_1" viewBox="0 0 6 6" refX="5" refY="3" '
                             f'markerWidth="4" markerHeight="4" orient="auto">'
                             f'<path d="M0 0L6 3L0 6" fill="{TEAM_COLORS[1]}"/></marker>'
-                            '</defs>')
+                            '</defs>'
+                        )
                         has_arrows = True
                     scale = min(speed*3, 8)
                     nx = dx/speed*scale; ny = dy/speed*scale
