@@ -4,7 +4,7 @@ from components.stats import (
     build_trajectories, build_player_team_map,
     build_players_by_team, distance_per_player, precompute_heatmaps,
 )
-from components.tabs import tab_campo, tab_distancias, tab_heatmaps, tab_metricas
+from components.tabs import tab_campo, tab_heatmaps, tab_metricas
 
 st.set_page_config(
     page_title="Análisis táctico 7x7",
@@ -103,7 +103,7 @@ if not uploaded:
 
 # ── Cargar datos ──────────────────────────────────────────────
 with st.spinner("Cargando datos..."):
-    frames, frame_images, metricas = load_zip(uploaded)
+    frames, frame_images, _ = load_zip(uploaded)
 
 if not frames:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
@@ -117,18 +117,16 @@ heatmap_all, heatmap_diff_data = precompute_heatmaps(trajs, player_team)
 sorted_img_keys = sorted(frame_images.keys()) if frame_images else []
 
 # ── Tabs ──────────────────────────────────────────────────────
-t_campo, t_dist, t_heat, t_metricas = st.tabs([
-    "🟢 Campo en vivo", "📏 Distancias",
-    "🌡️ Heatmaps", "📊 Métricas tácticas",
+t_campo, t_heat, t_metricas = st.tabs([
+    "🟢 Campo en vivo",
+    "🌡️ Heatmaps",
+    "📊 Métricas tácticas",
 ])
 
 with t_campo:
     tab_campo.render(frames, frame_images, trajs,
                      heatmap_all, heatmap_diff_data,
                      ovs, sorted_img_keys)
-
-with t_dist:
-    tab_distancias.render(players_by_team, distances)
 
 with t_heat:
     tab_heatmaps.render(heatmap_all, heatmap_diff_data)
