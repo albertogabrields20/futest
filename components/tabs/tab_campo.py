@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from ..loaders import get_jugadores, get_pid, get_team
 from ..field import build_field_svg, TEAM_COLORS, TEAM_NAMES
 
@@ -9,7 +8,7 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
 
     n_frames = len(frames)
 
-    # ── Rango de reproducción ─────────────────────────────────
+    # ── Rango de navegación ───────────────────────────────────
     col_s, col_e = st.columns(2)
     with col_s:
         start_frame = int(st.number_input(
@@ -24,78 +23,7 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
         st.warning("El frame de inicio debe ser menor que el de fin.")
         start_frame, end_frame = 0, n_frames - 1
 
-    # ── Slider + botones con JS para reproducción ─────────────
-    # El JS controla el slider nativo de Streamlit directamente
-    speed_ms = st.select_slider(
-        "Velocidad", options=[50, 100, 200, 400],
-        value=100, format_func=lambda x: f"{x}ms/frame", key="speed"
-    )
-
-    components.html(f"""
-    <div style="display:flex;gap:10px;margin:4px 0">
-      <button id="btn-play" onclick="startPlay()" style="
-        background:#1e2130;border:1px solid #1D9E75;color:#1D9E75;
-        padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">
-        ▶ Reproducir
-      </button>
-      <button id="btn-stop" onclick="stopPlay()" style="
-        background:#1e2130;border:1px solid #3a3d50;color:#aaa;
-        padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px">
-        ⏹ Detener
-      </button>
-      <span id="status" style="color:#666;font-size:12px;align-self:center">
-        Listo
-      </span>
-    </div>
-    <script>
-      let interval = null;
-      const START = {start_frame};
-      const END   = {end_frame};
-      const SPEED = {speed_ms};
-
-      function getSlider() {{
-        // Streamlit slider input
-        return parent.document.querySelectorAll('input[type="range"]')[0];
-      }}
-
-      function setFrame(val) {{
-        const slider = getSlider();
-        if (!slider) return;
-        const nativeInput = Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype, 'value'
-        );
-        nativeInput.set.call(slider, val);
-        slider.dispatchEvent(new Event('input', {{ bubbles: true }}));
-        slider.dispatchEvent(new Event('change', {{ bubbles: true }}));
-      }}
-
-      function startPlay() {{
-        if (interval) clearInterval(interval);
-        document.getElementById('status').textContent = '▶ Reproduciendo';
-        document.getElementById('btn-play').style.borderColor = '#1D9E75';
-        const slider = getSlider();
-        let cur = slider ? parseInt(slider.value) : START;
-        if (cur >= END) cur = START;
-        interval = setInterval(() => {{
-          if (cur > END) {{
-            stopPlay();
-            return;
-          }}
-          setFrame(cur);
-          cur++;
-        }}, SPEED);
-      }}
-
-      function stopPlay() {{
-        if (interval) clearInterval(interval);
-        interval = null;
-        document.getElementById('status').textContent = '⏸ Detenido';
-        document.getElementById('btn-play').style.borderColor = '#3a3d50';
-      }}
-    </script>
-    """, height=60)
-
-    # ── Slider principal ──────────────────────────────────────
+    # ── Slider ────────────────────────────────────────────────
     frame_idx = st.slider(
         "Frame",
         min_value=start_frame,
@@ -103,6 +31,8 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
         value=start_frame,
         key="frame_slider_display"
     )
+    st.caption(f"Frame {frame_idx} de {n_frames-1} · "
+               f"Rango seleccionado: {start_frame} → {end_frame}")
 
     # ── Plano 2D + Video ──────────────────────────────────────
     jugadores_frame = get_jugadores(frames[frame_idx])
@@ -129,7 +59,7 @@ def render(frames, frame_images, trajs, heatmap_all, heatmap_diff_data,
             st.image(frame_images[closest])
             if len(sorted_img_keys) > 1:
                 step = sorted_img_keys[1] - sorted_img_keys[0]
-                st.caption(f"Frame {frame_idx} · exportado cada {step} frames")
+                st.caption(f"Frame exportado cada {step} frames")
         else:
             st.info("El ZIP no contiene frames de vídeo.")
 
