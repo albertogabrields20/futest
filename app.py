@@ -134,4 +134,4 @@ with t_heat:
     tab_heatmaps.render(heatmap_all, heatmap_diff_data)
 
 with t_metricas:
-    tab_metricas.render(metricas)
+    tab_metricas.render(frames, player_team)
