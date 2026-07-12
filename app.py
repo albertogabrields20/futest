@@ -34,7 +34,6 @@ h1,h2,h3 { color: #f0f0f0 !important; }
 
 st.title("⚽ Análisis táctico 7×7")
 
-# ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
     st.header("Cargar datos")
     uploaded = st.file_uploader("partido.zip", type="zip")
@@ -101,9 +100,8 @@ if not uploaded:
     st.info("👈 Sube el archivo `partido.zip` para comenzar.")
     st.stop()
 
-# ── Cargar datos ──────────────────────────────────────────────
 with st.spinner("Cargando datos..."):
-    frames, frame_images, _ = load_zip(uploaded)
+    frames, frame_index, zip_bytes, _ = load_zip(uploaded)
 
 if not frames:
     st.error("No se encontró posiciones_limpias.json dentro del ZIP.")
@@ -114,9 +112,7 @@ player_team     = build_player_team_map(trajs)
 players_by_team = build_players_by_team(player_team)
 distances       = distance_per_player(trajs)
 heatmap_all, heatmap_diff_data = precompute_heatmaps(trajs, player_team)
-sorted_img_keys = sorted(frame_images.keys()) if frame_images else []
 
-# ── Tabs ──────────────────────────────────────────────────────
 t_campo, t_heat, t_metricas = st.tabs([
     "🟢 Campo en vivo",
     "🌡️ Heatmaps",
@@ -124,9 +120,8 @@ t_campo, t_heat, t_metricas = st.tabs([
 ])
 
 with t_campo:
-    tab_campo.render(frames, frame_images, trajs,
-                     heatmap_all, heatmap_diff_data,
-                     ovs, sorted_img_keys)
+    tab_campo.render(frames, frame_index, zip_bytes, trajs,
+                     heatmap_all, heatmap_diff_data, ovs)
 
 with t_heat:
     tab_heatmaps.render(heatmap_all, heatmap_diff_data)
