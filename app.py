@@ -124,7 +124,7 @@ with t_campo:
                      heatmap_all, heatmap_diff_data, ovs)
 
 with t_heat:
-    tab_heatmaps.render(heatmap_all, heatmap_diff_data)
+    tab_heatmaps.render(frames, heatmap_all, heatmap_diff_data)
 
 with t_metricas:
     tab_metricas.render(frames, player_team)
