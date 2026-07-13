@@ -1,37 +1,12 @@
 import streamlit as st
 from ..loaders import get_jugadores, get_pid, get_team, get_frame_image
 from ..field import build_field_svg, TEAM_COLORS, TEAM_NAMES
-
-
-def nav_controls(key, n_frames):
-    """Navegación frame a frame. Retorna el frame actual."""
-    if key not in st.session_state:
-        st.session_state[key] = 0
-
-    col_prev, col_next = st.columns([1, 1])
-    with col_prev:
-        if st.button("◀ Anterior", key=f"{key}_prev"):
-            st.session_state[key] = max(0, st.session_state[key] - 1)
-    with col_next:
-        if st.button("Siguiente ▶", key=f"{key}_next"):
-            st.session_state[key] = min(n_frames - 1, st.session_state[key] + 1)
-
-    def on_slider():
-        st.session_state[key] = st.session_state[f"{key}_slider"]
-
-    st.slider(
-        "Frame", 0, n_frames - 1,
-        value=st.session_state[key],
-        key=f"{key}_slider",
-        on_change=on_slider,
-    )
-    return st.session_state[key]
+from ..nav import nav_controls
 
 
 def render(frames, frame_index, zip_bytes, trajs, heatmap_all, heatmap_diff_data, ovs):
     n_frames = len(frames)
     frame_idx = nav_controls("campo_frame", n_frames)
-    st.caption(f"Frame {frame_idx} de {n_frames - 1}")
 
     jugadores_frame = get_jugadores(frames[frame_idx])
     heat_team_id = 0 if st.session_state.get("heat_team") == "E1" else 1
