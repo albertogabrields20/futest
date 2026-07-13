@@ -3,6 +3,7 @@ import math
 from collections import defaultdict
 from ..loaders import get_jugadores, get_pos, get_team, get_pid
 from ..field import TEAM_COLORS, TEAM_NAMES, FIELD_W
+from ..nav import nav_controls
 
 
 def calcular_metricas(frames, player_team):
@@ -203,24 +204,7 @@ def render(frames, player_team):
         ])
 
         n_frames = len(frames)
-        if "evol_frame" not in st.session_state:
-            st.session_state["evol_frame"] = 0
-
-        col_prev, col_next = st.columns([1, 1])
-        with col_prev:
-            if st.button("◀ Anterior", key="evol_prev"):
-                st.session_state["evol_frame"] = max(0, st.session_state["evol_frame"] - 1)
-        with col_next:
-            if st.button("Siguiente ▶", key="evol_next"):
-                st.session_state["evol_frame"] = min(n_frames - 1, st.session_state["evol_frame"] + 1)
-
-        def on_evol_slider():
-            st.session_state["evol_frame"] = st.session_state["evol_slider"]
-
-        frame_idx = st.session_state["evol_frame"]
-        st.slider("Frame", 0, n_frames - 1,
-                  value=frame_idx,
-                  key="evol_slider", on_change=on_evol_slider)
+        frame_idx = nav_controls("evol_frame", n_frames)
 
         # Tiempo del frame actual
         t_actual = por_frame[frame_idx]["tiempo"] if frame_idx < len(por_frame) else 0
