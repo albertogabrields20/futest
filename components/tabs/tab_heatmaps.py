@@ -1,6 +1,7 @@
 import streamlit as st
 from ..field import build_field_svg, TEAM_COLORS, TEAM_NAMES
 from ..loaders import get_jugadores, get_pos, get_team
+from ..nav import nav_controls
 
 EMPTY_OVS = {k: False for k in [
     "heatmap_equipo","heatmap_diff","voronoi","superioridad",
@@ -8,27 +9,6 @@ EMPTY_OVS = {k: False for k in [
     "linea_defensiva","linea_presion","lineas_banda","red_proximidad",
     "triangulos","marcajes","radio_presion","centroide","cola","vectores",
 ]}
-
-
-def nav_controls(key, n_frames):
-    if key not in st.session_state:
-        st.session_state[key] = 0
-
-    col_prev, col_next = st.columns([1, 1])
-    with col_prev:
-        if st.button("◀ Anterior", key=f"{key}_prev"):
-            st.session_state[key] = max(0, st.session_state[key] - 1)
-    with col_next:
-        if st.button("Siguiente ▶", key=f"{key}_next"):
-            st.session_state[key] = min(n_frames - 1, st.session_state[key] + 1)
-
-    def on_slider():
-        st.session_state[key] = st.session_state[f"{key}_slider"]
-
-    st.slider("Frame", 0, n_frames - 1,
-              value=st.session_state[key],
-              key=f"{key}_slider", on_change=on_slider)
-    return st.session_state[key]
 
 
 def render(frames, heatmap_all, heatmap_diff_data):
@@ -40,7 +20,6 @@ def render(frames, heatmap_all, heatmap_diff_data):
 
     if mode == "Frame a frame":
         frame_idx = nav_controls("heat_frame", n_frames)
-        st.caption(f"Frame {frame_idx} de {n_frames - 1}")
 
         jugadores = get_jugadores(frames[frame_idx])
         pts_frame = {0: [], 1: []}
@@ -71,7 +50,7 @@ def render(frames, heatmap_all, heatmap_diff_data):
                 heatmap_diff={"e0": pts_frame[0], "e1": pts_frame[1]},
             ), unsafe_allow_html=True)
 
-    else:  # Partido completo
+    else:
         if tipo == "Por equipo":
             col1, col2 = st.columns(2)
             for col, team_id in zip([col1, col2], [0, 1]):
